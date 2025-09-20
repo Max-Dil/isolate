@@ -234,7 +234,7 @@ print(table3.a, table3.b, table3.c) -- 1, 3, 4
     table.clear()
     print(table.size()) -- 0
     ```
-11. `clone()` — возвращает копию таблицы (поверхностное копирование).  
+11. `clone()` — возвращает копию таблицы.  
     ```isolate
     copy = table.clone()
     copy.set("a", 10)
@@ -374,6 +374,8 @@ print(test_fun(5)) -- 10
 - `next(table, [index])` — возвращает следующую пару ключ-значение в таблице.  
 - `jsonencode(table)` — кодирует таблицу или массив в JSON-строку.  
 - `jsondecode(string)` — декодирует JSON-строку в таблицу или массив.  
+- `base64encode(s)` — возращает строку в формате base64.
+- `base64decode(s)` — декодирует и воращает строку из base64 формата.
 - `strformat(format, ...)` — форматирует строку с аргументами.  
 - `strtoupper(text)` — преобразует строку в верхний регистр.  
 - `round(number, [decimals])` — округляет число до целого или указанного количества знаков.  
@@ -384,3 +386,56 @@ print(test_fun(5)) -- 10
 - `type(object)` — возвращает тип переменной.  
 - `tonumber(value)` — преобразует значение в число.  
 - `loadedpackages` — содержит кэшированные модули (значение `nil`).
+
+
+## 13 Использование
+local isolate = require("isolate") -- подключает библиотеку
+
+Фукнции:
+- `isolate.run(code, filename)` - Выполняет код языка isolate. filename для отладки.
+```lua
+isolate.run([[
+print("Helo, world")
+]])
+```
+
+- `isolate.addfunction(name, func, source)` - Добавляет вашу фукнцию в глобальные функции языка. source - описание функции.
+```lua
+isolate.addfunction("test", function (a, b)
+    return a + b
+end)
+```
+
+- `isolate.createarray(array)` - Создает массив с методами языка isolate.
+```lua
+isolate.addfunction("test", function (a, b)
+    return isolate.createarray({a, b})
+end)
+```
+
+- `isolate.createtable(table)` - Создает таблицу с методами языка isolate.
+
+- `isolate.createfunction(func, source)` - Создает фукнцию isolate с описанием.
+
+- `isolate.addpackage(name, package, globals)` - Добавляет в кеш модулей ваш модуль чтобы его могли загрузить через import
+name - имя модуля
+package - таблица с модулем для импорта через import-from
+globals - таблица из которой смогут импортировать через from-import
+```lua
+isolate.addpackage("test2", {
+    a = 100
+}, {
+    test_g = isolate.createfunction(function ()
+        return 999
+    end, "Возращает 999")
+})
+
+isolate.run([[
+import "test2" from test2
+print(test2) -- {a = 100}
+
+from "test2" import test_g
+print(test_g()) -- 999
+]])
+```
+

@@ -22,7 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ]]
 
-local listFunctions = { "default", "math", "string", "json" }
+local listFunctions = { "default", "math", "string", "json", "base64" }
 
 local G__dir = ...
 G__dir = G__dir:match("(.-)%.intepretator$")
@@ -75,31 +75,31 @@ local function createTable(tbl)
                 end
                 return key_array
             end,
-            values = function ()
+            values = function()
                 local value_array = __ISOLATE__.createArray({})
                 for _, value in pairs(tbl) do
                     value_array.push(value)
                 end
                 return value_array
             end,
-            has = function (key)
+            has = function(key)
                 return tbl[key] ~= nil
             end,
-            set = function (key, value)
+            set = function(key, value)
                 tbl[key] = value
                 return tbl
             end,
-            remove = function (key)
+            remove = function(key)
                 tbl[key] = nil
                 return tbl
             end,
-            merge = function (table2)
+            merge = function(table2)
                 for key, value in pairs(table2) do
                     tbl[key] = value
                 end
                 return tbl
             end,
-            filter = function (callback)
+            filter = function(callback)
                 if callback then
                     local table_filter = __ISOLATE__.createTable({})
                     for key, value in pairs(tbl) do
@@ -112,7 +112,7 @@ local function createTable(tbl)
                     return __ISOLATE__.createTable(cloneTable(tbl))
                 end
             end,
-            map = function (callback)
+            map = function(callback)
                 if callback then
                     local table_filter = __ISOLATE__.createTable({})
                     for key, value in pairs(tbl) do
@@ -123,23 +123,23 @@ local function createTable(tbl)
                     return __ISOLATE__.createTable(cloneTable(tbl))
                 end
             end,
-            size = function ()
+            size = function()
                 local size = 0
                 for _ in pairs(tbl) do
                     size = size + 1
                 end
                 return size
             end,
-            clear = function ()
+            clear = function()
                 for key in pairs(tbl) do
                     tbl[key] = nil
                 end
                 return tbl
             end,
-            clone = function ()
+            clone = function()
                 return __ISOLATE__.createTable(cloneTable(tbl))
             end,
-            foreach = function (callback)
+            foreach = function(callback)
                 if callback then
                     for key, value in pairs(tbl) do
                         callback(key, value)
@@ -147,19 +147,19 @@ local function createTable(tbl)
                 end
                 return tbl
             end,
-            toarray = function ()
+            toarray = function()
                 local array = __ISOLATE__.createArray({})
                 for key, value in pairs(tbl) do
-                    local element = __ISOLATE__.createTable({key = key, value = value})
+                    local element = __ISOLATE__.createTable({ key = key, value = value })
                     array.push(element)
                 end
                 return array
             end,
-            find = function (callback)
+            find = function(callback)
                 if callback then
                     for key, value in pairs(tbl) do
                         if callback(key, value) then
-                            return __ISOLATE__.createTable({key = key, value = value})
+                            return __ISOLATE__.createTable({ key = key, value = value })
                         end
                     end
                 end
@@ -336,15 +336,17 @@ local analizy_array = function(t)
     return true, t
 end
 
-_G.__ISOLATE__ = {
-    createArray = createArray,
-    createTable = createTable,
-    analizy_array = analizy_array
-}
-
 local env = {
     loadedpackages = loadedModules
 }
+
+_G.__ISOLATE__ = {
+    createArray = createArray,
+    createTable = createTable,
+    analizy_array = analizy_array,
+    __env = env
+}
+
 for i = 1, #listFunctions, 1 do
     local s, err = pcall(require, G__dir .. ".intepretator.functions." .. listFunctions[i])
     if s and type(err) == "table" then
@@ -356,10 +358,10 @@ for i = 1, #listFunctions, 1 do
     end
 end
 
-for key, value in pairs(env) do
-    print(key, value.source)
-    print()
-end
+-- for key, value in pairs(env) do
+--     print(key, value.source)
+--     print()
+-- end
 
 local function interpret(ast)
     if type(ast) ~= "table" or not ast.type or ast.type ~= "Program" then
@@ -572,26 +574,40 @@ local function interpret(ast)
         end
     end
 
-    local function loadModule(modulePath, node)
+    local function loadModule(modulePath)
         if loadedModules[modulePath] then
             return loadedModules[modulePath].exports
         end
 
-        local filePath = modulePath:gsub("/", ".") .. ".iso"
+        local filePath = modulePath:gsub("/", "%.") .. ".iso"
         filePath = filePath:gsub("%.iso%.iso$", ".iso")
 
-        local code = love.filesystem.read(filePath)
+        local content
+        if _G.love and love.filesystem then
+            content = love.filesystem.read(filePath)
+            if not content then error("Failed to read: " .. filePath) end
+        else
+            local file
+            for path in (package.path .. ";."):gmatch("[^;]+") do
+                local fullPath = path:gsub("%?.lua", filePath)
+                file = io.open(fullPath, "r")
+                if file then
+                    content = file:read("*a")
+                    file:close()
+                    break
+                end
+            end
+            if not content then error("Module not found: " .. filePath) end
+        end
 
         local tokenize = require(G__dir .. ".lexer")
         local parse = require(G__dir .. ".parser")
-        local tokens = tokenize(code, modulePath)
+        local tokens = tokenize(content, modulePath)
         local ast = parse(tokens)
-
         local result, topVars = interpret(ast)
         local exports = type(result) == "table" and result or {}
 
         loadedModules[modulePath] = { exports = exports, globals = topVars }
-
         return exports
     end
 
@@ -696,10 +712,10 @@ local function interpret(ast)
                         error(string.format("Variable name must be a string, got %s at %s:%d:%d",
                             type(varName), file, line, column), 2)
                     end
-                    local exports = loadModule(modulePath, stmt)
+                    local exports = loadModule(modulePath)
                     setVar(varName, exports)
                 else
-                    loadModule(modulePath, stmt)
+                    loadModule(modulePath)
                 end
             elseif stmt.type == "FromImport" then
                 local modulePath = evaluate(stmt.module)
@@ -710,7 +726,7 @@ local function interpret(ast)
                     error(string.format("Module path must be a string, got %s at %s:%d:%d",
                         type(modulePath), file, line, column), 2)
                 end
-                local exports = loadModule(modulePath, stmt)
+                local exports = loadModule(modulePath)
                 for _, import in ipairs(stmt.names) do
                     local varName = import.name
                     if type(varName) ~= "string" then
