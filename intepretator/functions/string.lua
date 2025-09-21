@@ -1,4 +1,4 @@
-local strlen, trim, ltrim, rtrim, strreplace, strpos, strtolower, strtoupper, strformat
+local strlen, trim, ltrim, rtrim, strreplace, strpos, strtolower, strtoupper, strformat, strsplit
 
 strlen = setmetatable(
     {
@@ -109,6 +109,22 @@ strformat = setmetatable(
     }
 )
 
+strsplit = setmetatable(
+    {
+        type = "__function__",
+        source = "strsplit(string, sep)\nSplits a string into an array using the sep separator."
+    },
+    {
+        __call = function(self, str, sep)
+            local result = {}
+            for part in str:gmatch("[^" .. sep .. "]+") do
+                table.insert(result, part)
+            end
+            return __ISOLATE__.createArray(result)
+        end
+    }
+)
+
 return {
     strlen = strlen,
     trim = trim,
@@ -118,5 +134,6 @@ return {
     strpos = strpos,
     strtolower = strtolower,
     strtoupper = strtoupper,
-    strformat = strformat
+    strformat = strformat,
+    strsplit = strsplit
 }
