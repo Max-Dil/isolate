@@ -492,7 +492,7 @@ local function interpret(ast)
             elseif expr.type == "Nil" then
                 return nil
             elseif expr.type == "Identifier" then
-                return getVar(expr.name, expr)
+                return getVar(expr.name)
             elseif expr.type == "FunctionExpression" then
                 return createFunction(expr.params, expr.body, expr.source)
             elseif expr.type == "Binary" then

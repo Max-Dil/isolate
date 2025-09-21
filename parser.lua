@@ -90,7 +90,7 @@ local parse = function(tokens)
     end
 
     local function parseBlock()
-        local startToken = expect("{", "operator")
+        expect("{", "operator")
         local body = {}
         while peek() and peek().value ~= "}" do
             local stmt = parseStatement()
@@ -207,6 +207,9 @@ local parse = function(tokens)
 
                     if peek() and peek().value == "," then
                         advance()
+                        if peek() and peek().value == "}" then
+                            break
+                        end
                     elseif peek() and peek().value ~= "}" then
                         error("Expected ',' or '}' in table")
                     else
@@ -592,7 +595,6 @@ local parse = function(tokens)
             elseif token.value == "for" then
                 return parseFor()
             elseif token.value == "function" then
-                local source = token.source or "Not found"
                 return parseFunction(token)
             elseif token.value == "return" then
                 return parseReturn()
