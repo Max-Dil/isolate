@@ -2511,7 +2511,6 @@ isolate = {
             },
             parent = nil
         }
-        local current_scope = env
 
         _G.__ISOLATE__ = {
             createArray = createArray,
@@ -2537,6 +2536,7 @@ isolate = {
 
             local execute
             local scopes = { { vars = {} } }
+            local current_scope = env
 
             local function pushScope()
                 current_scope = { vars = {}, parent = current_scope }
@@ -2926,8 +2926,10 @@ isolate = {
                 return result
             end
 
+            pushScope()
             local result = execute(ast.body)
             local topVars = scopes[1].vars
+            popScope()
             return result, topVars
         end
 
