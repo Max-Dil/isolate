@@ -29,7 +29,7 @@ local createtable = function (table)
 end
 
 local addpackage = function (name, package, globals)
-    __ISOLATE__.__env.loadedpackages[name] = {exports = package, globals = globals}
+    __ISOLATE__.__env.loadedpackages[name] = {exports = package or {}, globals = globals or {}}
 end
 
 return {

@@ -337,28 +337,32 @@ local analizy_array = function(t)
 end
 
 local env = {
-    loadedpackages = loadedModules
+    vars = {
+        loadedpackages = loadedModules
+    },
+    parent = nil
 }
+local current_scope = env
 
 _G.__ISOLATE__ = {
     createArray = createArray,
     createTable = createTable,
     analizy_array = analizy_array,
-    __env = env
+    __env = env.vars
 }
 
 for i = 1, #listFunctions, 1 do
     local s, err = pcall(require, G__dir .. ".intepretator.functions." .. listFunctions[i])
     if s and type(err) == "table" then
         for key, value in pairs(err) do
-            env[key] = value
+            env.vars[key] = value
         end
     else
         error("Error to load Functions: " .. listFunctions[i] .. " err: " .. tostring(err), 2)
     end
 end
 
--- for key, value in pairs(env) do
+-- for key, value in pairs(env.vars) do
 --     print(key, value.source)
 --     print()
 -- end
@@ -376,33 +380,37 @@ local function interpret(ast)
     local scopes = { { vars = {} } }
 
     local function pushScope()
-        table.insert(scopes, { vars = {} })
+        current_scope = { vars = {}, parent = current_scope }
     end
 
     local function popScope()
-        table.remove(scopes)
+        if current_scope.parent == nil then
+            error("Attempt to pop global scope", 2)
+        end
+        current_scope = current_scope.parent
     end
 
-    local function getVar(name, node)
-        for i = #scopes, 1, -1 do
-            if scopes[i].vars[name] then
-                return scopes[i].vars[name]
+    local function getVar(name)
+        local scope = current_scope
+        while scope do
+            if scope.vars[name] ~= nil then
+                return scope.vars[name]
             end
-        end
-        if env[name] then
-            return env[name]
+            scope = scope.parent
         end
         return nil
     end
 
     local function setVar(name, value)
-        for i = #scopes, 1, -1 do
-            if scopes[i].vars[name] then
-                scopes[i].vars[name] = value
+        local scope = current_scope
+        while scope do
+            if scope.vars[name] ~= nil then
+                scope.vars[name] = value
                 return
             end
+            scope = scope.parent
         end
-        scopes[#scopes].vars[name] = value
+        current_scope.vars[name] = value
     end
 
     local function getTableValue(tbl, key, node)
@@ -432,19 +440,23 @@ local function interpret(ast)
             type = "__function__",
             params = params,
             body = body,
-            source = source or "Not found"
+            source = source or "Not found",
+            closure_env = current_scope
         }
         local mt = {
             __call = function(self, ...)
                 local allArgs = { ... }
+                local old_scope = current_scope
                 pushScope()
+                current_scope.parent = self.closure_env
                 local success, result = pcall(function()
                     for i, param in ipairs(self.params) do
-                        scopes[#scopes].vars[param.name] = allArgs[i]
+                        current_scope.vars[param.name] = allArgs[i]
                     end
                     return execute(self.body)
                 end)
                 popScope()
+                current_scope = old_scope
                 if not success then
                     error(result, 2)
                 end
