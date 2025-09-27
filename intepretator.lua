@@ -449,7 +449,7 @@ local function interpret(ast)
                 local old_scope = current_scope
                 pushScope()
                 current_scope.parent = self.closure_env
-                local success, result = pcall(function()
+                local success, status, result = pcall(function()
                     for i, param in ipairs(self.params) do
                         current_scope.vars[param.name] = allArgs[i]
                     end
@@ -458,9 +458,13 @@ local function interpret(ast)
                 popScope()
                 current_scope = old_scope
                 if not success then
-                    error(result, 2)
+                    error(status, 2)
                 end
-                return result
+                if status == "return" then
+                    return result
+                else
+                    return nil
+                end
             end
         }
         setmetatable(func, mt)
@@ -650,32 +654,41 @@ local function interpret(ast)
                 evaluate(stmt)
             elseif stmt.type == "If" then
                 if evaluate(stmt.condition) then
-                    local status = execute(stmt.consequent)
+                    local status, result_return = execute(stmt.consequent)
                     if status == "break" or status == "continue" then
                         return status
+                    elseif status == "return" then
+                        return status, result_return
                     end
                 elseif stmt.alternate then
-                    local status = execute(stmt.alternate)
+                    local status, result_return = execute(stmt.alternate)
                     if status == "break" or status == "continue" then
                         return status
+                    elseif status == "return" then
+                        return status, result_return
                     end
                 end
             elseif stmt.type == "While" then
                 while evaluate(stmt.test) do
-                    local status = execute(stmt.body)
+                    local status, result_return = execute(stmt.body)
                     if status == "break" then
                         break
                     elseif status == "continue" then
+                    elseif status == "return" then
+                        return status, result_return
                     end
                 end
             elseif stmt.type == "For" then
                 pushScope()
                 if stmt.init then execute({ stmt.init }) end
                 while stmt.test == nil or evaluate(stmt.test) do
-                    local status = execute(stmt.body)
+                    local status, result_return = execute(stmt.body)
                     if status == "break" then
                         break
                     elseif status == "continue" then
+                    elseif status == "return" then
+                        popScope()
+                        return status, result_return
                     end
                     if stmt.update then
                         if stmt.update.type == "Assignment" then
@@ -701,7 +714,7 @@ local function interpret(ast)
                 popScope()
             elseif stmt.type == "Return" then
                 result = evaluate(stmt.argument)
-                return result
+                return "return", result
             elseif stmt.type == "Break" then
                 return "break"
             elseif stmt.type == "Continue" then
@@ -767,10 +780,10 @@ local function interpret(ast)
     end
 
     pushScope()
-    local result = execute(ast.body)
+    local status, result = execute(ast.body)
     local topVars = scopes[1].vars
     popScope()
-    return result, topVars
+    return result or status, topVars
 end
 
 return interpret

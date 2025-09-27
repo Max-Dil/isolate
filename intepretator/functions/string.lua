@@ -1,4 +1,4 @@
-local strlen, trim, ltrim, rtrim, strreplace, strpos, strtolower, strtoupper, strformat, strsplit
+local strlen, trim, ltrim, rtrim, strreplace, strpos, strtolower, strtoupper, strformat, strsplit, strsub
 
 strlen = setmetatable(
     {
@@ -8,6 +8,18 @@ strlen = setmetatable(
     {
         __call = function(self, text)
             return string.len(text)
+        end
+    }
+)
+
+strsub = setmetatable(
+    {
+        type = "__function__",
+        source = "strsub(text, start, end)\nReturns a substring from start to end position"
+    },
+    {
+        __call = function(self, text, start, end_pos)
+            return string.sub(text, start, end_pos)
         end
     }
 )
@@ -63,7 +75,8 @@ strreplace = setmetatable(
 strpos = setmetatable(
     {
         type = "__function__",
-        source = "strpos(text, find)\nReturns the position of the first occurrence of find in text, or nil if not found"
+        source =
+        "strpos(text, find)\nReturns the position of the first occurrence of find in text, or nil if not found"
     },
     {
         __call = function(self, text, find)
@@ -135,5 +148,6 @@ return {
     strtolower = strtolower,
     strtoupper = strtoupper,
     strformat = strformat,
-    strsplit = strsplit
+    strsplit = strsplit,
+    strsub = strsub
 }
